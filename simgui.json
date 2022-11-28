@@ -1,0 +1,39 @@
+{
+  "HALProvider": {
+    "Other Devices": {
+      "Talon FX[2]": {
+        "header": {
+          "open": true
+        }
+      },
+      "Talon FX[2]/Fwd Limit": {
+        "header": {
+          "open": true
+        }
+      },
+      "Talon FX[2]/Integrated Sensor": {
+        "header": {
+          "open": true
+        }
+      },
+      "Talon FX[2]/Rev Limit": {
+        "header": {
+          "open": true
+        }
+      },
+      "Talon FX[5]": {
+        "header": {
+          "open": true
+        }
+      }
+    }
+  },
+  "NTProvider": {
+    "types": {
+      "/FMSInfo": "FMSInfo",
+      "/Shuffleboard/CompetitionLogger/m_autoChooser": "String Chooser",
+      "/Shuffleboard/Robot/field": "Field2d",
+      "/Shuffleboard/SwerveDrive/Robot Angle": "Gyro"
+    }
+  }
+}
