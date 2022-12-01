@@ -9,8 +9,8 @@ import com.ctre.phoenix.motorcontrol.can.WPI_TalonFX;
 import edu.wpi.first.wpilibj.DigitalInput;
 import edu.wpi.first.wpilibj.DoubleSolenoid;
 import edu.wpi.first.wpilibj.DoubleSolenoid.Value;
-import frc.robot.swerve.SwerveMap;
 import edu.wpi.first.wpilibj.PneumaticsModuleType;
+import frc.robot.swerve.SwerveDrive;
 import io.github.oblarg.oblog.Loggable;
 import io.github.oblarg.oblog.annotations.Log;
 
@@ -70,8 +70,8 @@ public class Climber implements Loggable{
     }
 
     public void periodic() {
-        currentPitch = SwerveMap.GYRO.getRoll();
-        currentPitchSpeed = SwerveMap.GYRO.getVelocityY();
+        currentPitch = SwerveDrive.GYRO.getRoll();
+        currentPitchSpeed = SwerveDrive.GYRO.getVelocityY();
         if (!atOrigin) {
           reZero();
         } else {

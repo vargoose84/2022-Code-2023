@@ -25,6 +25,11 @@
         "header": {
           "open": true
         }
+      },
+      "navX-Sensor[0]": {
+        "header": {
+          "open": true
+        }
       }
     }
   },
@@ -34,6 +39,72 @@
       "/Shuffleboard/CompetitionLogger/m_autoChooser": "String Chooser",
       "/Shuffleboard/Robot/field": "Field2d",
       "/Shuffleboard/SwerveDrive/Robot Angle": "Gyro"
+    },
+    "windows": {
+      "/Shuffleboard/CompetitionLogger/m_autoChooser": {
+        "window": {
+          "visible": true
+        }
+      },
+      "/Shuffleboard/Robot/field": {
+        "Robot": {
+          "length": 0.6159999966621399,
+          "style": "Box/Image",
+          "weight": 2.0,
+          "width": 0.6259999871253967
+        },
+        "backLeft": {
+          "arrowSize": 10,
+          "arrowWeight": 1.0,
+          "length": 0.25,
+          "weight": 2.0,
+          "width": 0.25
+        },
+        "backRight": {
+          "arrowSize": 10,
+          "arrowWeight": 1.0,
+          "length": 0.25,
+          "weight": 1.0,
+          "width": 0.25
+        },
+        "frontLeft": {
+          "arrowSize": 10,
+          "arrowWeight": 1.0,
+          "length": 0.25,
+          "weight": 1.0,
+          "width": 0.25
+        },
+        "frontRight": {
+          "arrowSize": 10,
+          "arrowWeight": 1.0,
+          "length": 0.25,
+          "weight": 2.0,
+          "width": 0.25
+        },
+        "image": "C:\\Users\\Sam\\Downloads\\2022-field.png",
+        "window": {
+          "visible": true
+        }
+      }
     }
+  },
+  "NetworkTables": {
+    "transitory": {
+      "LiveWindow": {
+        "open": true
+      },
+      "Shuffleboard": {
+        "SwerveDrive": {
+          "open": true
+        },
+        "open": true
+      },
+      "limelight-intake": {
+        "open": true
+      }
+    }
+  },
+  "NetworkTables View": {
+    "visible": false
   }
 }

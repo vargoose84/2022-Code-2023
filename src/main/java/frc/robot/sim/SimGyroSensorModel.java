@@ -3,6 +3,7 @@ package frc.robot.sim;
 import edu.wpi.first.hal.SimDouble;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.wpilibj.simulation.SimDeviceSim;
+import frc.robot.Robot;
 
 public class SimGyroSensorModel{
 
@@ -26,10 +27,10 @@ public class SimGyroSensorModel{
 
         double curGyroAngle  = curRobotPose.getRotation().getDegrees();
         double prevGyroAngle = prevRobotPose.getRotation().getDegrees();
-        double gyroRate = (curGyroAngle - prevGyroAngle)/0.02; //Gyro reads backward from sim reference frames.
+        double gyroRate = (curGyroAngle - prevGyroAngle)/Robot.deltaTime; //Gyro reads backward from sim reference frames.
         // Pass our model of what the sensor would be measuring back into the simGyro object
         // for the embedded code to interact with.
         rateSimDouble.set(gyroRate);
-        yawSimDouble.set(yawSimDouble.get() + (gyroRate*0.02));
+        yawSimDouble.set(yawSimDouble.get() + (gyroRate*Robot.deltaTime));
     }
 }

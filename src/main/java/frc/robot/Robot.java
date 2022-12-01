@@ -3,33 +3,19 @@
 // the WPILib BSD license file in the root directory of this project.
 
 package frc.robot;
-import java.util.Arrays;
-import java.util.List;
-
-import com.kauailabs.navx.frc.AHRS;
-
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
-import edu.wpi.first.math.geometry.Transform2d;
-import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.networktables.NetworkTableInstance;
-import edu.wpi.first.wpilibj.DriverStation;
-import edu.wpi.first.wpilibj.GenericHID;
-import edu.wpi.first.wpilibj.SPI;
+
 import edu.wpi.first.wpilibj.TimedRobot;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.XboxController;
 import edu.wpi.first.wpilibj.livewindow.LiveWindow;
 import edu.wpi.first.wpilibj.smartdashboard.Field2d;
-import frc.robot.swerve.SwerveConstants;
-import frc.robot.sim.SimGyroSensorModel;
-import frc.robot.swerve.SwerveModuleSim;
 import frc.robot.swerve.SwerveDrive;
-import frc.robot.swerve.SwerveMap;
 import frc.robot.swerve.SwerveTrajectory;
 import io.github.oblarg.oblog.Logger;
 import io.github.oblarg.oblog.annotations.Log;
-import edu.wpi.first.wpilibj.RobotBase;
 
 
  /*For starting a new Stampede swerve project
@@ -68,10 +54,10 @@ public class Robot extends TimedRobot {
   public void robotInit() {
     LiveWindow.setEnabled(false);
     LiveWindow.disableAllTelemetry();
-    SwerveMap.GYRO = new AHRS(SPI.Port.kMXP);
-    SwerveMap.GYRO.reset(); 
     
-    SwerveMap.checkAndSetSwerveCANStatus();
+    SWERVEDRIVE = SwerveDrive.getInstance();
+    SWERVEDRIVE.init();
+    SWERVEDRIVE.quadFalconSwerveDrive.checkAndSetSwerveCANStatus();
 
     //**Intake method starts here**
     INTAKE = Intake.getInstance();
@@ -83,7 +69,7 @@ public class Robot extends TimedRobot {
     AUTOSEGMENTEDWAYPOINTS = AutoSegmentedWaypoints.getInstance();
     // 
     //loads the selected pathplanner path
-    SwerveMap.driveRobotInit();
+    SWERVEDRIVE.quadFalconSwerveDrive.driveRobotInit();
     // AUTOWAYPOINTS.loadAutoPaths();
     AUTOSEGMENTEDWAYPOINTS.loadAutoPaths();
 
@@ -131,23 +117,24 @@ public class Robot extends TimedRobot {
   public void robotPeriodic() {
     deltaTime = Timer.getFPGATimestamp() - prevTime;
     prevTime = Timer.getFPGATimestamp();
-    SWERVEDRIVE.updateOdometry();
-    SwerveMap.checkAndSetSwerveCANStatus();
-    SwerveMap.checkAndZeroSwerveAngle();
-    INTAKE.checkAndSetIntakeCANStatus();
-    SHOOTER.checkAndSetShooterCANStatus();
-    CLIMBER.checkAndSetClimberCANStatus();
+    //SwerveMap.checkAndSetSwerveCANStatus();
+    SWERVEDRIVE.quadFalconSwerveDrive.checkAndZeroSwerveAngle();
+    //INTAKE.checkAndSetIntakeCANStatus();
+    //SHOOTER.checkAndSetShooterCANStatus();
+    //CLIMBER.checkAndSetClimberCANStatus();
     Logger.updateEntries();
 
     myWattThingy =  myWattThingy + (COMPETITIONLOGGER.getMyPD() * COMPETITIONLOGGER.batteryVoltage()) / 0.02;
+    SWERVEDRIVE.prevRobotPose = SWERVEDRIVE.m_poseEstimator.getEstimatedPosition();
+    SWERVEDRIVE.updateOdometry();
     SWERVEDRIVE.drawRobotOnField(field);
   }
   
 
   @Override
   public void autonomousInit() {
-    SWERVEDRIVE.disableCurrentLimiting();
-    SWERVEDRIVE.setToBrake();
+    SWERVEDRIVE.quadFalconSwerveDrive.disableCurrentLimiting();
+    SWERVEDRIVE.quadFalconSwerveDrive.setToBrake();
     // AUTOWAYPOINTS.init();
     AUTOSEGMENTEDWAYPOINTS.init();
      
@@ -171,8 +158,8 @@ public class Robot extends TimedRobot {
   /** This function is called once when teleop is enabled. */
   @Override
   public void teleopInit() {
-    SWERVEDRIVE.enableCurrentLimiting();
-    SWERVEDRIVE.setToBrake();
+    SWERVEDRIVE.quadFalconSwerveDrive.enableCurrentLimiting();
+    SWERVEDRIVE.quadFalconSwerveDrive.setToBrake();
     INTAKE.intakeNow = false;
     INTAKE.shootNow = false;
     // SHOOTER.homocideTheBattery = false;
@@ -204,7 +191,7 @@ public class Robot extends TimedRobot {
   /** This function is called periodically when disabled. */
   @Override
   public void disabledPeriodic() {
-    SWERVEDRIVE.setToCoast();
+    SWERVEDRIVE.quadFalconSwerveDrive.setToCoast();
   }
 
   /** This function is called once when test mode is enabled. */

@@ -13,7 +13,7 @@ import edu.wpi.first.wpilibj.RobotController;
 import edu.wpi.first.wpilibj.simulation.FlywheelSim;
 import frc.robot.Robot;
 import frc.robot.swerve.SwerveConstants;
-import frc.robot.swerve.SwerveMap;
+import frc.robot.swerve.QuadFalconSwerveDrive;
 
 public class SwerveModuleSim {
 

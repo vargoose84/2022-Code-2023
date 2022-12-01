@@ -3,7 +3,6 @@ package frc.robot.swerve;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.ctre.phoenix.motorcontrol.ControlMode;
 import com.kauailabs.navx.frc.AHRS;
 
 import edu.wpi.first.math.MathUtil;
@@ -15,30 +14,26 @@ import edu.wpi.first.math.estimator.SwerveDrivePoseEstimator;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Transform2d;
-import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.kinematics.SwerveDriveKinematics;
-import edu.wpi.first.math.kinematics.SwerveDriveOdometry;
-import edu.wpi.first.math.kinematics.SwerveModulePosition;
 import edu.wpi.first.math.kinematics.SwerveModuleState;
 import edu.wpi.first.math.util.Units;
 import edu.wpi.first.networktables.NetworkTableInstance;
-import edu.wpi.first.wpilibj.Joystick;
-import edu.wpi.first.wpilibj.RobotBase;
-import edu.wpi.first.wpilibj.simulation.JoystickSim;
 import edu.wpi.first.wpilibj.smartdashboard.Field2d;
 import frc.robot.Constants;
 import frc.robot.Robot;
-import frc.robot.swerve.SwerveMap.SwerveModule;
+import frc.robot.sim.SimGyroSensorModel;
 import io.github.oblarg.oblog.Loggable;
 import io.github.oblarg.oblog.annotations.Config;
 import io.github.oblarg.oblog.annotations.Log;
 import edu.wpi.first.math.numbers.N3;
 import edu.wpi.first.math.numbers.N5;
 import edu.wpi.first.math.numbers.N7;
+import edu.wpi.first.wpilibj.SPI;
 
 
 public class SwerveDrive implements Loggable {
+  public QuadFalconSwerveDrive quadFalconSwerveDrive;
   public boolean autoLimeLightAim = false;
   public boolean acceleratedInputs = true;
   public boolean defensiveStop = true;
@@ -50,6 +45,7 @@ public class SwerveDrive implements Loggable {
   private double SDySpeed=0;
   private double SDrotation=0;
 
+
   public ArrayList<Double> velocities = new ArrayList<Double>();
   private static SwerveDrive SINGLE_INSTANCE = new SwerveDrive();
   
@@ -59,22 +55,25 @@ public class SwerveDrive implements Loggable {
   
   public double holdRobotAngleSetpoint = SwerveConstants.DEFAULT_HOLD_ROBOT_ANGLE_SETPOINT;
   public double joystickDriveGovernor = SwerveConstants.SPEED_GOVERNOR;
-  public String NeutralMode = "Brake";
 
-  public final Translation2d m_frontLeftLocation = new Translation2d(SwerveConstants.WHEEL_BASE_METERS/2, SwerveConstants.TRACK_WIDE/2);
-  public final Translation2d m_frontRightLocation = new Translation2d(SwerveConstants.WHEEL_BASE_METERS/2, -SwerveConstants.TRACK_WIDE/2);
-  public final Translation2d m_backLeftLocation = new Translation2d(-SwerveConstants.WHEEL_BASE_METERS/2, SwerveConstants.TRACK_WIDE/2);
-  public final Translation2d m_backRightLocation = new Translation2d(-SwerveConstants.WHEEL_BASE_METERS/2, -SwerveConstants.TRACK_WIDE/2);
-  public final List<Translation2d> getSwerveBotTranslationList = List.of(m_frontLeftLocation, m_frontRightLocation,m_backLeftLocation, m_backRightLocation);
-  public final SwerveDriveKinematics m_kinematics = new SwerveDriveKinematics(
-    m_frontLeftLocation, m_frontRightLocation, m_backLeftLocation, m_backRightLocation);
   public SwerveDrivePoseEstimator<N7, N7, N5> m_poseEstimator;
+  public Pose2d prevRobotPose = new Pose2d();
 
+  public static AHRS GYRO;
+  public SimGyroSensorModel simNavx; 
+
+  
   public static SwerveDrive getInstance() {
     return SINGLE_INSTANCE;
   }
 
   public void init(){
+    quadFalconSwerveDrive = new QuadFalconSwerveDrive();
+
+    SwerveDrive.GYRO = new AHRS(SPI.Port.kMXP);
+    SwerveDrive.GYRO.reset(); 
+    simNavx = new SimGyroSensorModel();
+
     velocities.add(0.0);
     velocities.add(0.0);
     holdRobotAngleController.disableContinuousInput();
@@ -86,30 +85,31 @@ public class SwerveDrive implements Loggable {
         Nat.N7(),
         Nat.N7(),
         Nat.N5(),
-        SwerveMap.getRobotAngle(),
-        getModulePositions(),
+        getRobotAngle(),
+        quadFalconSwerveDrive.getModulePositions(),
         new Pose2d(),
-        m_kinematics,
+        quadFalconSwerveDrive.m_kinematics,
         VecBuilder.fill(0.05, 0.05, Units.degreesToRadians(5), 0.05, 0.05, 0.05, 0.05),
         VecBuilder.fill(Units.degreesToRadians(0.01), 0.01, 0.01, 0.01, 0.01),
         VecBuilder.fill(0.5, 0.5, Units.degreesToRadians(30)));
   }
 
   public void swervePeriodic() {
+
     joystickDrive();
     drive(
       getSDxSpeed(), 
       getSDySpeed(), 
       getSDRotation(), 
       getSDFieldRelative());
-
-    //getVelocities();
+    
   }
 
   public void simulationPeriodic(){
-       for(SwerveModule module : SwerveMap.RealSwerveModuleList) {
+      for(SwerveModule module : quadFalconSwerveDrive.SwerveModuleList) {
         module.simModule.simulationPeriodic();
       }
+    simNavx.update(m_poseEstimator.getEstimatedPosition(), prevRobotPose );
     }
 
   /**
@@ -124,44 +124,29 @@ public class SwerveDrive implements Loggable {
   public void drive(double _xSpeed, double _ySpeed, double _rot, boolean _fieldRelative) {
     if (Robot.xbox.getRightStickButton() || autoLimeLightAim){
       NetworkTableInstance.getDefault().getTable("limelight").getEntry("pipeline").setNumber(0);
-      _rot = holdRobotAngleController.calculate(SwerveMap.getRobotAngle().getRadians(), ((getRobotAngleDegrees() - limelightTX())/360)*(2*Math.PI));
-      holdRobotAngleSetpoint = SwerveMap.getRobotAngle().getRadians();
-    //  System.out.println(limelightTX());
-    // } else if (_xSpeed == 0 && _ySpeed == 0 && _rot == 0 && holdRobotAngleEnabled) {
-    //   System.out.println("Evan sucks booty%");
+      _rot = holdRobotAngleController.calculate(getRobotAngle().getRadians(), ((getRobotAngleDegrees() - limelightTX())/360)*(2*Math.PI));
+      holdRobotAngleSetpoint = getRobotAngle().getRadians();
+    } else if (_xSpeed == 0 && _ySpeed == 0 && _rot == 0 && holdRobotAngleEnabled) {
+      System.out.println("Evan sucks booty%");
     
-    //   NetworkTableInstance.getDefault().getTable("limelight").getEntry("pipeline").setNumber(1);
+      NetworkTableInstance.getDefault().getTable("limelight").getEntry("pipeline").setNumber(1);
     } else if (Robot.xbox.getLeftStickButton()){
       _fieldRelative = false;
     } else {
-      holdRobotAngleSetpoint = SwerveMap.getRobotAngle().getRadians();
+      holdRobotAngleSetpoint = getRobotAngle().getRadians();
       NetworkTableInstance.getDefault().getTable("limelight").getEntry("pipeline").setNumber(0);
     }
+
     SwerveModuleState[] moduleStates =
-          m_kinematics.toSwerveModuleStates( _fieldRelative ? 
-          ChassisSpeeds.fromFieldRelativeSpeeds(_xSpeed, _ySpeed, _rot, SwerveMap.getRobotAngle())
+          quadFalconSwerveDrive.m_kinematics.toSwerveModuleStates( _fieldRelative ? 
+          ChassisSpeeds.fromFieldRelativeSpeeds(_xSpeed, _ySpeed, _rot, getRobotAngle())
           : new ChassisSpeeds(_xSpeed, _ySpeed, _rot));
     SwerveDriveKinematics.desaturateWheelSpeeds(moduleStates, SwerveConstants.MAX_SPEED_METERSperSECOND);
       
     if (defensiveStop && _xSpeed == 0 && _ySpeed == 0 && _rot == 0) {
-      SwerveMap.FrontRightSwerveModule.setSteeringAngle(135);
-      SwerveMap.FrontRightSwerveModule.mDriveMotor.set(ControlMode.PercentOutput, 0);
-
-      SwerveMap.FrontLeftSwerveModule.setSteeringAngle(45);
-      SwerveMap.FrontLeftSwerveModule.mDriveMotor.set(ControlMode.PercentOutput, 0);
-
-      SwerveMap.BackRightSwerveModule.setSteeringAngle(45);
-      SwerveMap.BackRightSwerveModule.mDriveMotor.set(ControlMode.PercentOutput, 0);
-
-      SwerveMap.BackLeftSwerveModule.setSteeringAngle(135);
-      SwerveMap.BackLeftSwerveModule.mDriveMotor.set(ControlMode.PercentOutput, 0);
-
+      quadFalconSwerveDrive.activateDefensiveStop();
     } else {
-      SwerveMap.FrontLeftSwerveModule.setDesiredState(moduleStates[0]);
-      SwerveMap.FrontRightSwerveModule.setDesiredState(moduleStates[1]);
-      SwerveMap.BackLeftSwerveModule.setDesiredState(moduleStates[2]);
-      SwerveMap.BackRightSwerveModule.setDesiredState(moduleStates[3]);
-
+      quadFalconSwerveDrive.setModuleSpeeds(moduleStates);
     }
   }
 
@@ -194,7 +179,7 @@ public class SwerveDrive implements Loggable {
    * Adjust the measurement noise/trust of vision estimation as robot velocities change.
    */
   private Vector<N3> calculateVisionNoise(){
-    ChassisSpeeds speeds = m_kinematics.toChassisSpeeds(getModuleStates());
+    ChassisSpeeds speeds = quadFalconSwerveDrive.m_kinematics.toChassisSpeeds(quadFalconSwerveDrive.getModuleStates());
     double linearPercent = Math.hypot(speeds.vxMetersPerSecond, speeds.vyMetersPerSecond) / (
         SwerveConstants.MAX_SPEED_METERSperSECOND);
     double angularPercent = Math.abs(speeds.omegaRadiansPerSecond) / SwerveConstants.MAX_SPEED_RADIANSperSECOND;
@@ -206,51 +191,21 @@ public class SwerveDrive implements Loggable {
   }
 
 
-
-
-
-  /**
-   * MUST BE ADDED TO PERIODIC (NOT INIT METHODS)
-   * sets all the talons (steer and drive motors) to coast.
-   * This allows for easy moving of the robot
-   */
-  public void setToCoast(){
-          
-    if (NeutralMode == "Brake" &&
-      Math.abs(SwerveMap.FrontLeftSwerveModule.mDriveMotor.getSelectedSensorVelocity())  < 100 &&
-      Math.abs(SwerveMap.BackLeftSwerveModule.mDriveMotor.getSelectedSensorVelocity())   < 100 &&
-      Math.abs(SwerveMap.FrontRightSwerveModule.mDriveMotor.getSelectedSensorVelocity()) < 100 &&
-      Math.abs(SwerveMap.BackRightSwerveModule.mDriveMotor.getSelectedSensorVelocity())  < 100) {
-        SwerveMap.FrontRightSwerveModule.swerveDisabledInit();
-        SwerveMap.BackRightSwerveModule.swerveDisabledInit();
-        SwerveMap.FrontLeftSwerveModule.swerveDisabledInit();
-        SwerveMap.BackLeftSwerveModule.swerveDisabledInit();
-        NeutralMode = "Coast";
-      }
-
-  }
-/**When we drive around we want the robot to brake... nuff said */
-  public void setToBrake(){
-    SwerveMap.FrontRightSwerveModule.swerveEnabledInit();
-    SwerveMap.BackRightSwerveModule.swerveEnabledInit();
-    SwerveMap.FrontLeftSwerveModule.swerveEnabledInit();
-    SwerveMap.BackLeftSwerveModule.swerveEnabledInit();
-    NeutralMode = "Brake";
+  public Rotation2d getRobotAngle(){
+    if (GYRO.isConnected()){
+        return GYRO.getRotation2d();
+    } else {
+        try {
+        //System.out.println( deltaTime);
+        return Robot.SWERVEDRIVE.m_poseEstimator.getEstimatedPosition().getRotation().rotateBy(new Rotation2d(quadFalconSwerveDrive.m_kinematics.toChassisSpeeds(quadFalconSwerveDrive.getModuleStates()).omegaRadiansPerSecond *Robot.deltaTime));
+        } catch (Exception e) {
+        return new Rotation2d();        
+        }
+    }
   }
 
-  public void enableCurrentLimiting(){
-    SwerveMap.FrontRightSwerveModule.enableCurrentLimiting();
-    SwerveMap.BackRightSwerveModule.enableCurrentLimiting();
-    SwerveMap.FrontLeftSwerveModule.enableCurrentLimiting();
-    SwerveMap.BackLeftSwerveModule.enableCurrentLimiting();
-  }
 
-  public void disableCurrentLimiting(){
-    SwerveMap.FrontRightSwerveModule.disableCurrentLimiting();
-    SwerveMap.BackRightSwerveModule.disableCurrentLimiting();
-    SwerveMap.FrontLeftSwerveModule.disableCurrentLimiting();
-    SwerveMap.BackLeftSwerveModule.disableCurrentLimiting();
-  }
+
 
   public double limelightTX() {  
     double tx = NetworkTableInstance.getDefault().getTable("limelight").getEntry("tx").getDouble(0);
@@ -279,38 +234,12 @@ public class SwerveDrive implements Loggable {
   }
 
   /** Updates the field relative position of the robot. */
-  // public void updateOdometry() {
-  //   m_odometry.update(
-      
-  //   SwerveMap.getRobotAngle(),
-  //   SwerveMap.FrontLeftSwerveModule.getState(),
-  //   SwerveMap.FrontRightSwerveModule.getState(),
-  //   SwerveMap.BackLeftSwerveModule.getState(),
-  //   SwerveMap.BackRightSwerveModule.getState());
-  //   //System.out.println("x= " + m_odometry.getPoseMeters().getX() + " y="+m_odometry.getPoseMeters().getY());
-  //   //System.out.println("FL: " + Math.round(SwerveMap.FrontLeftSwerveModule.mDriveMotor.getSelectedSensorVelocity()) + " FR: " +Math.round(SwerveMap.FrontRightSwerveModule.mDriveMotor.getSelectedSensorVelocity()));
-  //   //System.out.println("BL: " + Math.round(SwerveMap.BackLeftSwerveModule.mDriveMotor.getSelectedSensorVelocity()) + " BR: " +Math.round(SwerveMap.BackRightSwerveModule.mDriveMotor.getSelectedSensorVelocity()));
-  // }
-
   public void updateOdometry(){
-    m_poseEstimator.update(SwerveMap.getRobotAngle(), getModuleStates(), getModulePositions());
+    m_poseEstimator.update(getRobotAngle(), 
+    quadFalconSwerveDrive.getModuleStates(), 
+    quadFalconSwerveDrive.getModulePositions());
   }
-  public SwerveModuleState[] getModuleStates(){
-    return new SwerveModuleState[]{
-        SwerveMap.RealSwerveModuleList.get(0).getSwerveModuleState(),
-        SwerveMap.RealSwerveModuleList.get(1).getSwerveModuleState(),
-        SwerveMap.RealSwerveModuleList.get(2).getSwerveModuleState(),
-        SwerveMap.RealSwerveModuleList.get(3).getSwerveModuleState()
-    };
-  }
-  public SwerveModulePosition[] getModulePositions(){
-    return new SwerveModulePosition[]{
-        SwerveMap.RealSwerveModuleList.get(0).getPosition(),
-        SwerveMap.RealSwerveModuleList.get(1).getPosition(),
-        SwerveMap.RealSwerveModuleList.get(2).getPosition(),
-        SwerveMap.RealSwerveModuleList.get(3).getPosition()
-    };
-  }
+
 
 
   /**
@@ -324,13 +253,13 @@ public class SwerveDrive implements Loggable {
     // then rotated around its own center by the angle of the module.
     
     field.getObject("frontLeft").setPose(
-        getPose().transformBy(new Transform2d(getSwerveBotTranslationList.get(0), SwerveMap.FrontLeftSwerveModule.getSwerveModuleState().angle)));
+        getPose().transformBy(new Transform2d(quadFalconSwerveDrive.FrontLeftSwerveModule.mTranslation2d, quadFalconSwerveDrive.FrontLeftSwerveModule.getSwerveModuleState().angle)));
     field.getObject("frontRight").setPose(
-        getPose().transformBy(new Transform2d(getSwerveBotTranslationList.get(1), SwerveMap.FrontRightSwerveModule.getSwerveModuleState().angle)));
+        getPose().transformBy(new Transform2d(quadFalconSwerveDrive.FrontRightSwerveModule.mTranslation2d, quadFalconSwerveDrive.FrontRightSwerveModule.getSwerveModuleState().angle)));
     field.getObject("backLeft").setPose(
-        getPose().transformBy(new Transform2d(getSwerveBotTranslationList.get(2), SwerveMap.BackLeftSwerveModule.getSwerveModuleState().angle)));
+        getPose().transformBy(new Transform2d(quadFalconSwerveDrive.BackLeftSwerveModule.mTranslation2d, quadFalconSwerveDrive.BackLeftSwerveModule.getSwerveModuleState().angle)));
     field.getObject("backRight").setPose(
-        getPose().transformBy(new Transform2d(getSwerveBotTranslationList.get(3), SwerveMap.BackRightSwerveModule.getSwerveModuleState().angle)));
+        getPose().transformBy(new Transform2d(quadFalconSwerveDrive.BackRightSwerveModule.mTranslation2d, quadFalconSwerveDrive.BackRightSwerveModule.getSwerveModuleState().angle)));
   }
 
   /**
@@ -343,7 +272,7 @@ public class SwerveDrive implements Loggable {
   
   @Log.Gyro(name = "Robot Angle", rowIndex = 2, columnIndex = 5)
   private AHRS getGyro(){
-    return SwerveMap.GYRO;
+    return SwerveDrive.GYRO;
   }
 
   public boolean getSDFieldRelative() {
@@ -389,7 +318,7 @@ public class SwerveDrive implements Loggable {
 
   @Log.Dial(name= "Current Robot Angle", min = -180, max = 180, rowIndex = 0, columnIndex =3)
   public double getRobotAngleDegrees(){
-    return SwerveMap.getRobotAngle().getDegrees();
+    return getRobotAngle().getDegrees();
   }
   @Log.Dial(name= "Hold Angle Setpoint", min = -180, max = 180, rowIndex = 0, columnIndex =4)
   public double getHoldAngleSetpoint(){
@@ -401,52 +330,15 @@ public class SwerveDrive implements Loggable {
   }
 
   public void resetOdometry(){
-    m_poseEstimator.resetPosition(SwerveMap.getRobotAngle(), getModulePositions(), new Pose2d());
+    m_poseEstimator.resetPosition(getRobotAngle(), quadFalconSwerveDrive.getModulePositions(), new Pose2d());
   }
 
   public void resetOdometry(Pose2d _Pose2d, Rotation2d _Rotation2d){
-    m_poseEstimator.resetPosition(_Rotation2d, getModulePositions(), _Pose2d);
+    m_poseEstimator.resetPosition(_Rotation2d, quadFalconSwerveDrive.getModulePositions(), _Pose2d);
   }
 
 
 
- /* @Log.NumberBar(name = "FL Speed", min=-5,max=5 , rowIndex = 2, columnIndex =4, height = 1, width = 1)
-  public double getFrontLeftSpeed(){
-    return SwerveMap.FrontLeftSwerveModule.getState().speedMetersPerSecond;
-  }
-  @Log.Dial(name = "FL Angle", min = -90, max = 90, rowIndex = 2, columnIndex =3, height = 1, width = 1)
-  public double getFrontLeftAngle(){
-    return Math.IEEEremainder(SwerveMap.FrontLeftSwerveModule.getState().angle.getDegrees(),180);
-  }
-
-  @Log.NumberBar(name = "FR Speed", min=-5,max=5, rowIndex = 2, columnIndex =7, height = 1, width = 1)
-  public double getFrontRightSpeed(){
-    return SwerveMap.FrontRightSwerveModule.getState().speedMetersPerSecond;
-  }
-  @Log.Dial(name = "FR Angle", min = -90, max = 90, rowIndex = 2, columnIndex =8, height = 1, width = 1)
-  public double getFrontRightAngle(){
-    return Math.IEEEremainder(SwerveMap.FrontRightSwerveModule.getState().angle.getDegrees(),180);
-  }
-
-  @Log.NumberBar(name = "BL Speed", min=-5,max=5, rowIndex = 3, columnIndex =4, height = 1, width = 1)
-  public double getBackLeftSpeed(){
-    return SwerveMap.BackLeftSwerveModule.getState().speedMetersPerSecond;
-  }
-  @Log.Dial(name = "BL Angle", min = -90, max = 90, rowIndex = 3, columnIndex =3, height = 1, width = 1)
-  public double getBackLeftAngle(){
-    return Math.IEEEremainder(SwerveMap.BackLeftSwerveModule.getState().angle.getDegrees(),180);
-  }
-
-
-  @Log.NumberBar(name = "BR Speed", min=-5,max=5,  rowIndex =3, columnIndex =7, height = 1, width = 1)
-  public double getBackRightSpeed(){
-    return SwerveMap.BackRightSwerveModule.getState().speedMetersPerSecond;
-  }
-  @Log.Dial(name = "BR Angle", min = -90, max = 90, rowIndex =3, columnIndex =8, height = 1, width = 1)
-  public double getBackRightAngle(){
-    return Math.IEEEremainder(SwerveMap.BackRightSwerveModule.getState().angle.getDegrees(),180);
-  }
-  */
   @Log(rowIndex = 0, columnIndex = 5, height = 1, width = 1)
   public double getXPos(){
     return m_poseEstimator.getEstimatedPosition().getTranslation().getX();
@@ -455,28 +347,9 @@ public class SwerveDrive implements Loggable {
   public double getYPos(){
     return m_poseEstimator.getEstimatedPosition().getTranslation().getY();
   }
-  /*
-  @Log.BooleanBox(rowIndex = 1, columnIndex = 5)
-  public boolean getGyroInterference(){
-    return SwerveMap.GYRO.isMagneticDisturbance();
-  }
-  @Config.NumberSlider(name="Governor", defaultValue = 1, min = 0, max = 1, rowIndex = 2, columnIndex = 0, height = 1, width = 2)
-  public void setJoystickGovernor(double _input){
-    joystickDriveGovernor = _input;
-  }
-*/
 
 
-  @Config.ToggleButton(name="RE-Zero Swerve Angle", defaultValue = false, rowIndex = 4, columnIndex = 0, height = 1, width = 2)
-  public void reZeroSwerveDrive(boolean _input){
-    if(_input){
-      SwerveMap.FrontRightSwerveModule.REzeroSwerveAngle();
-      SwerveMap.BackRightSwerveModule.REzeroSwerveAngle();
-      SwerveMap.FrontLeftSwerveModule.REzeroSwerveAngle();
-      SwerveMap.BackLeftSwerveModule.REzeroSwerveAngle();
-    _input = false;
-    }
-  }
-  
+
+ 
 
 }

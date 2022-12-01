@@ -11,7 +11,8 @@ import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.wpilibj.RobotBase;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
-import frc.robot.swerve.SwerveMap;
+import frc.robot.swerve.QuadFalconSwerveDrive;
+import frc.robot.swerve.SwerveDrive;
 import frc.robot.swerve.SwerveTrajectory;
 import io.github.oblarg.oblog.Loggable;
 import io.github.oblarg.oblog.annotations.Log;
@@ -83,8 +84,8 @@ public class AutoSegmentedWaypoints implements Loggable {
     public void init() {
         StateHasInitialized = false;
         StateHasFinished = false;
-        SwerveMap.GYRO.reset();
-        SwerveMap.simNavx.resetToPose(new Pose2d(new Translation2d(), new Rotation2d())
+        SwerveDrive.GYRO.reset();
+        Robot.SWERVEDRIVE.simNavx.resetToPose(new Pose2d(new Translation2d(), new Rotation2d())
         );
         if (m_autoChooser.getSelected()==null){
             chosenPath = myAutoContainer[0];
@@ -101,9 +102,9 @@ public class AutoSegmentedWaypoints implements Loggable {
         
         Robot.SWERVEDRIVE.resetOdometry(new Pose2d(initalPathPose.poseMeters.getTranslation(), edu.wpi.first.math.geometry.Rotation2d.fromDegrees(-chosenPath.thisRot)), edu.wpi.first.math.geometry.Rotation2d.fromDegrees(-chosenPath.thisRot)); 
         if (RobotBase.isSimulation()){
-            SwerveMap.simNavx.resetToPose(new Pose2d(new Translation2d(), edu.wpi.first.math.geometry.Rotation2d.fromDegrees(-chosenPath.thisRot)));
+            //SwerveMap.simNavx.resetToPose(new Pose2d(new Translation2d(), edu.wpi.first.math.geometry.Rotation2d.fromDegrees(-chosenPath.thisRot)));
         } 
-        SwerveMap.GYRO.setAngleAdjustment(chosenPath.thisRot);
+        SwerveDrive.GYRO.setAngleAdjustment(chosenPath.thisRot);
     
     }
     
@@ -319,7 +320,7 @@ public class AutoSegmentedWaypoints implements Loggable {
             StateHasInitialized = true;
         }
         
-        SwerveTrajectory.PathPlannerRunner(Robot.SWERVEDRIVE, thisWaypointSet[currentWaypointNumber].pathPlannerSegment,  Robot.SWERVEDRIVE.m_poseEstimator, SwerveMap.getRobotAngle());
+        SwerveTrajectory.PathPlannerRunner(Robot.SWERVEDRIVE, thisWaypointSet[currentWaypointNumber].pathPlannerSegment,  Robot.SWERVEDRIVE.m_poseEstimator, Robot.SWERVEDRIVE.getRobotAngle());
         thisWaypointSet[currentWaypointNumber].action.run();
 
         if (StateHasFinished){

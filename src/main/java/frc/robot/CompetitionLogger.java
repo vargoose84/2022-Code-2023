@@ -7,7 +7,8 @@ import edu.wpi.first.wpilibj.PowerDistribution;
 import edu.wpi.first.wpilibj.RobotController;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.PowerDistribution.ModuleType;
-import frc.robot.swerve.SwerveMap;
+import frc.robot.swerve.QuadFalconSwerveDrive;
+import frc.robot.swerve.SwerveDrive;
 import io.github.oblarg.oblog.Loggable;
 import io.github.oblarg.oblog.annotations.Config;
 import io.github.oblarg.oblog.annotations.Log;
@@ -72,21 +73,21 @@ public class CompetitionLogger implements Loggable {
         
         @Log
         public boolean allZeroedModules(){
-            return SwerveMap.BackLeftSwerveModule.hasSwerveZeroingOccurred &&
-            SwerveMap.BackRightSwerveModule.hasSwerveZeroingOccurred &&
-            SwerveMap.FrontLeftSwerveModule.hasSwerveZeroingOccurred &&
-            SwerveMap.FrontRightSwerveModule.hasSwerveZeroingOccurred;
+            return Robot.SWERVEDRIVE.quadFalconSwerveDrive.BackLeftSwerveModule.hasSwerveZeroingOccurred &&
+            Robot.SWERVEDRIVE.quadFalconSwerveDrive.BackRightSwerveModule.hasSwerveZeroingOccurred &&
+            Robot.SWERVEDRIVE.quadFalconSwerveDrive.FrontLeftSwerveModule.hasSwerveZeroingOccurred &&
+            Robot.SWERVEDRIVE.quadFalconSwerveDrive.FrontRightSwerveModule.hasSwerveZeroingOccurred;
         }
     }
     
     @Log
     public float getPitch(){
-        return SwerveMap.GYRO.getPitch();
+        return SwerveDrive.GYRO.getPitch();
     }
 
     @Log 
     public float getPitchV() {
-        return SwerveMap.GYRO.getVelocityY();
+        return SwerveDrive.GYRO.getVelocityY();
     }
     
     // @Log
