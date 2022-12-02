@@ -82,12 +82,12 @@ public class CompetitionLogger implements Loggable {
     
     @Log
     public float getPitch(){
-        return SwerveDrive.GYRO.getPitch();
+        return Robot.SWERVEDRIVE.GYRO.getPitch();
     }
 
     @Log 
     public float getPitchV() {
-        return SwerveDrive.GYRO.getVelocityY();
+        return Robot.SWERVEDRIVE.GYRO.getVelocityY();
     }
     
     // @Log

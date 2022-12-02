@@ -70,8 +70,8 @@ public class Climber implements Loggable{
     }
 
     public void periodic() {
-        currentPitch = SwerveDrive.GYRO.getRoll();
-        currentPitchSpeed = SwerveDrive.GYRO.getVelocityY();
+        currentPitch = Robot.SWERVEDRIVE.GYRO.getRoll();
+        currentPitchSpeed = Robot.SWERVEDRIVE.GYRO.getVelocityY();
         if (!atOrigin) {
           reZero();
         } else {

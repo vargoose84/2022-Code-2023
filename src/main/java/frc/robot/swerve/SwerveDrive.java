@@ -5,10 +5,8 @@ import java.util.List;
 
 import com.kauailabs.navx.frc.AHRS;
 
-import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.Nat;
 import edu.wpi.first.math.VecBuilder;
-import edu.wpi.first.math.Vector;
 import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.math.estimator.SwerveDrivePoseEstimator;
 import edu.wpi.first.math.geometry.Pose2d;
@@ -26,9 +24,9 @@ import frc.robot.sim.SimGyroSensorModel;
 import io.github.oblarg.oblog.Loggable;
 import io.github.oblarg.oblog.annotations.Config;
 import io.github.oblarg.oblog.annotations.Log;
-import edu.wpi.first.math.numbers.N3;
 import edu.wpi.first.math.numbers.N5;
 import edu.wpi.first.math.numbers.N7;
+import edu.wpi.first.wpilibj.RobotBase;
 import edu.wpi.first.wpilibj.SPI;
 
 
@@ -59,7 +57,7 @@ public class SwerveDrive implements Loggable {
   public SwerveDrivePoseEstimator<N7, N7, N5> m_poseEstimator;
   public Pose2d prevRobotPose = new Pose2d();
 
-  public static AHRS GYRO;
+  public AHRS GYRO;
   public SimGyroSensorModel simNavx; 
 
   
@@ -70,8 +68,8 @@ public class SwerveDrive implements Loggable {
   public void init(){
     quadFalconSwerveDrive = new QuadFalconSwerveDrive();
 
-    SwerveDrive.GYRO = new AHRS(SPI.Port.kMXP);
-    SwerveDrive.GYRO.reset(); 
+    GYRO = new AHRS(SPI.Port.kMXP);
+    GYRO.reset(); 
     simNavx = new SimGyroSensorModel();
 
     velocities.add(0.0);
@@ -110,6 +108,7 @@ public class SwerveDrive implements Loggable {
         module.simModule.simulationPeriodic();
       }
     simNavx.update(m_poseEstimator.getEstimatedPosition(), prevRobotPose );
+    System.out.println("here5");
     }
 
   /**
@@ -173,35 +172,22 @@ public class SwerveDrive implements Loggable {
     
   }
 
-
-
-  /**
-   * Adjust the measurement noise/trust of vision estimation as robot velocities change.
-   */
-  private Vector<N3> calculateVisionNoise(){
-    ChassisSpeeds speeds = quadFalconSwerveDrive.m_kinematics.toChassisSpeeds(quadFalconSwerveDrive.getModuleStates());
-    double linearPercent = Math.hypot(speeds.vxMetersPerSecond, speeds.vyMetersPerSecond) / (
-        SwerveConstants.MAX_SPEED_METERSperSECOND);
-    double angularPercent = Math.abs(speeds.omegaRadiansPerSecond) / SwerveConstants.MAX_SPEED_RADIANSperSECOND;
-    return VecBuilder.fill(
-        MathUtil.interpolate(0.05, 10, linearPercent),
-        MathUtil.interpolate(0.05, 10, linearPercent),
-        Units.degreesToRadians(MathUtil.interpolate(1, 45, angularPercent))
-    );
+  @Log
+  public boolean isGyroConnected() {
+    return GYRO.isConnected();
   }
 
-
   public Rotation2d getRobotAngle(){
-    if (GYRO.isConnected()){
-        return GYRO.getRotation2d();
+    if(RobotBase.isSimulation() && GYRO.isConnected()) {
+      return simNavx.getRotation2d();
+    } else if (GYRO.isConnected()){
+      return GYRO.getRotation2d();
     } else {
-        try {
         //System.out.println( deltaTime);
-        return Robot.SWERVEDRIVE.m_poseEstimator.getEstimatedPosition().getRotation().rotateBy(new Rotation2d(quadFalconSwerveDrive.m_kinematics.toChassisSpeeds(quadFalconSwerveDrive.getModuleStates()).omegaRadiansPerSecond *Robot.deltaTime));
-        } catch (Exception e) {
-        return new Rotation2d();        
-        }
+        System.out.println("here3");
+        return prevRobotPose.getRotation().rotateBy(new Rotation2d(quadFalconSwerveDrive.m_kinematics.toChassisSpeeds(quadFalconSwerveDrive.getModuleStates()).omegaRadiansPerSecond *Robot.deltaTime));   
     }
+    
   }
 
 
@@ -235,6 +221,7 @@ public class SwerveDrive implements Loggable {
 
   /** Updates the field relative position of the robot. */
   public void updateOdometry(){
+    System.out.println("here2");
     m_poseEstimator.update(getRobotAngle(), 
     quadFalconSwerveDrive.getModuleStates(), 
     quadFalconSwerveDrive.getModulePositions());
@@ -270,11 +257,6 @@ public class SwerveDrive implements Loggable {
         return m_poseEstimator.getEstimatedPosition();
   }
   
-  @Log.Gyro(name = "Robot Angle", rowIndex = 2, columnIndex = 5)
-  private AHRS getGyro(){
-    return SwerveDrive.GYRO;
-  }
-
   public boolean getSDFieldRelative() {
     return SDFieldRelative;
   }

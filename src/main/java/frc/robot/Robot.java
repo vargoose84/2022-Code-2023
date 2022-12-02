@@ -126,6 +126,7 @@ public class Robot extends TimedRobot {
 
     myWattThingy =  myWattThingy + (COMPETITIONLOGGER.getMyPD() * COMPETITIONLOGGER.batteryVoltage()) / 0.02;
     SWERVEDRIVE.prevRobotPose = SWERVEDRIVE.m_poseEstimator.getEstimatedPosition();
+    System.out.println("here1");
     SWERVEDRIVE.updateOdometry();
     SWERVEDRIVE.drawRobotOnField(field);
   }
@@ -211,6 +212,7 @@ public class Robot extends TimedRobot {
 
   @Override
   public void simulationPeriodic() {
+    System.out.println("here4");
     SWERVEDRIVE.simulationPeriodic();
   }
 

@@ -2,6 +2,7 @@ package frc.robot.sim;
 
 import edu.wpi.first.hal.SimDouble;
 import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.wpilibj.simulation.SimDeviceSim;
 import frc.robot.Robot;
 
@@ -32,5 +33,9 @@ public class SimGyroSensorModel{
         // for the embedded code to interact with.
         rateSimDouble.set(gyroRate);
         yawSimDouble.set(yawSimDouble.get() + (gyroRate*Robot.deltaTime));
+    }
+    
+    public Rotation2d getRotation2d() {
+        return Rotation2d.fromDegrees(yawSimDouble.get());
     }
 }

@@ -84,7 +84,7 @@ public class AutoSegmentedWaypoints implements Loggable {
     public void init() {
         StateHasInitialized = false;
         StateHasFinished = false;
-        SwerveDrive.GYRO.reset();
+        Robot.SWERVEDRIVE.GYRO.reset();
         Robot.SWERVEDRIVE.simNavx.resetToPose(new Pose2d(new Translation2d(), new Rotation2d())
         );
         if (m_autoChooser.getSelected()==null){
@@ -104,7 +104,7 @@ public class AutoSegmentedWaypoints implements Loggable {
         if (RobotBase.isSimulation()){
             //SwerveMap.simNavx.resetToPose(new Pose2d(new Translation2d(), edu.wpi.first.math.geometry.Rotation2d.fromDegrees(-chosenPath.thisRot)));
         } 
-        SwerveDrive.GYRO.setAngleAdjustment(chosenPath.thisRot);
+        Robot.SWERVEDRIVE.GYRO.setAngleAdjustment(chosenPath.thisRot);
     
     }
     
